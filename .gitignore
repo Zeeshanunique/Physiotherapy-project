@@ -88,4 +88,5 @@ Desktop.ini
 
 # Others
 *.log
+venv/
 
