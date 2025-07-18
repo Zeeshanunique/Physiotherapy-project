@@ -19,7 +19,11 @@ import {
   VolumeX
 } from 'lucide-react'
 import { APIService, ExercisePrediction, APIUtils } from '@/lib/api'
-import MediaPipePoseDetector, { PoseResults, PoseLandmark } from '@/lib/mediapipe'
+
+// Dynamic import for MediaPipe to avoid SSR issues
+type MediaPipePoseDetector = any;
+type PoseResults = any;
+type PoseLandmark = any;
 
 interface ExerciseMonitorProps {}
 
@@ -87,8 +91,11 @@ const ExerciseMonitor: React.FC<ExerciseMonitorProps> = () => {
     try {
       setPoseDetectionStatus('initializing')
       
+      // Dynamic import for MediaPipe to avoid SSR issues
+      const { default: MediaPipePoseDetectorClass } = await import('@/lib/mediapipe')
+      
       // Create MediaPipe pose detector
-      poseDetectorRef.current = new MediaPipePoseDetector()
+      poseDetectorRef.current = new MediaPipePoseDetectorClass()
       
       // Initialize the detector
       const initialized = await poseDetectorRef.current.initialize()

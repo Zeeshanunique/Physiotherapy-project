@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Activity, Heart, Target, TrendingUp, Users, Zap } from 'lucide-react'
-import DashboardComponent from '@/components/Dashboard'
+import Dashboard from '@/components/Dashboard'
 import ExerciseMonitor from '@/components/ExerciseMonitor'
 import SessionHistory from '@/components/SessionHistory'
 import BackendTest from '@/components/BackendTest'
@@ -35,7 +35,7 @@ export default function Home() {
   const renderCurrentView = () => {
     switch (currentView) {
       case 'dashboard':
-        return <DashboardComponent systemInfo={systemInfo} onViewChange={setCurrentView} />
+        return <Dashboard systemInfo={systemInfo} onViewChange={setCurrentView} />
       case 'exercise':
         return <ExerciseMonitor />
       case 'history':
@@ -43,7 +43,7 @@ export default function Home() {
       case 'test':
         return <BackendTest />
       default:
-        return <DashboardComponent systemInfo={systemInfo} onViewChange={setCurrentView} />
+        return <Dashboard systemInfo={systemInfo} onViewChange={setCurrentView} />
     }
   }
 
