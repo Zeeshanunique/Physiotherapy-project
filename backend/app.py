@@ -349,7 +349,7 @@ def load_models():
 def detect_exercise_phase(joint_angles, predicted_exercise, selected_exercise=None):
     """
     Detect if the exercise is in 'up' or 'down' phase based on joint angles
-    Enhanced version with better thresholds for the scikit-learn approach
+    Enhanced version with proper rep counting for different exercise types
     """
     global current_exercise_state
     
@@ -365,72 +365,96 @@ def detect_exercise_phase(joint_angles, predicted_exercise, selected_exercise=No
     print(f"   Angles - Shoulder: {shoulder_angle:.1f}°, Elbow: {elbow_angle:.1f}°, Hip: {hip_angle:.1f}°, Knee: {knee_angle:.1f}°")
     
     # Phase detection logic for each exercise type
-    exercise_lower = predicted_exercise.lower().replace('-', '_')
+    exercise_lower = predicted_exercise.lower().replace('-', '_').replace(' ', '_')
     
-    # Squats
-    if exercise_lower in ['squat']:
-        if knee_angle < 110:
+    # Squats - Count on up movement (standing up completes a rep)
+    if exercise_lower in ['squat', 'squats']:
+        if knee_angle < 120:  # Lowered threshold for better detection
             new_phase = 'down'
         else:
             new_phase = 'up'
     
-    # Push-ups
-    elif exercise_lower in ['push_up']:
-        if elbow_angle < 110:
+    # Push-ups - Count on up movement (pushing up completes a rep)
+    elif exercise_lower in ['push_up', 'push_ups', 'pushup', 'pushups']:
+        if elbow_angle < 120:  # Lowered threshold
             new_phase = 'down'
         else:
             new_phase = 'up'
     
-    # Bicep curls
-    elif exercise_lower in ['bicep_curl']:
-        if elbow_angle < 100:
-            new_phase = 'up'  # Curled position
+    # Bicep curls - Count on down movement (lowering weight completes a rep)
+    elif exercise_lower in ['bicep_curl', 'bicep_curls', 'curl', 'curls']:
+        if elbow_angle < 110:  # Curled position
+            new_phase = 'up'
         else:
-            new_phase = 'down'  # Extended position
+            new_phase = 'down'
     
-    # High knees
-    elif exercise_lower in ['high_knees']:
-        if knee_angle < 100:
-            new_phase = 'up'  # Knee raised
+    # High knees - Count on down movement (lowering knee completes a rep)
+    elif exercise_lower in ['high_knees', 'high_knee']:
+        if knee_angle < 110:  # Knee raised
+            new_phase = 'up'
         else:
-            new_phase = 'down'  # Knee lowered
+            new_phase = 'down'
     
-    # Wall sits (isometric)
+    # Wall sits (isometric) - Count holds
     elif exercise_lower in ['wall_sits', 'wall_sit']:
-        if knee_angle < 110 and knee_angle > 70:
+        if knee_angle < 120 and knee_angle > 60:  # Wider range for hold detection
             new_phase = 'hold'
         else:
             new_phase = 'rest'
     
-    # Butt kicks
+    # Butt kicks - Count on down movement
     elif exercise_lower in ['butt_kicks', 'butt_kick']:
-        if knee_angle < 120:
-            new_phase = 'up'  # Heel to glute
+        if knee_angle < 130:  # Heel to glute
+            new_phase = 'up'
         else:
-            new_phase = 'down'  # Extended
+            new_phase = 'down'
     
-    # Default
+    # Jumping jacks - Count on down movement
+    elif exercise_lower in ['jumping_jack', 'jumping_jacks']:
+        if shoulder_angle > 120:  # Arms raised
+            new_phase = 'up'
+        else:
+            new_phase = 'down'
+    
+    # Default - use shoulder/elbow combination
     else:
-        if shoulder_angle < 100 or elbow_angle < 100:
+        if shoulder_angle < 110 or elbow_angle < 110:
             new_phase = 'down'
         else:
             new_phase = 'up'
     
-    # Count reps on phase transitions
+    # Count reps on phase transitions based on exercise type
     old_phase = current_exercise_state['current_phase']
     old_rep_count = current_exercise_state['rep_count']
     
+    # Different rep counting logic per exercise type
+    rep_incremented = False
+    
     if new_phase not in ['hold', 'rest'] and current_exercise_state['current_phase'] != new_phase:
-        if current_exercise_state['current_phase'] == 'down' and new_phase == 'up':
-            current_exercise_state['rep_count'] += 1
-            print(f"   🔥 REP COMPLETED! {old_rep_count} → {current_exercise_state['rep_count']}")
+        # For most exercises, count on 'down' to 'up' transition (completing the positive movement)
+        if exercise_lower in ['squat', 'squats', 'push_up', 'push_ups', 'pushup', 'pushups', 'jumping_jack', 'jumping_jacks']:
+            if current_exercise_state['current_phase'] == 'down' and new_phase == 'up':
+                current_exercise_state['rep_count'] += 1
+                rep_incremented = True
+                print(f"   🔥 REP COMPLETED (up movement)! {old_rep_count} → {current_exercise_state['rep_count']}")
+        
+        # For bicep curls and high knees, count on 'up' to 'down' transition (completing the negative movement)
+        elif exercise_lower in ['bicep_curl', 'bicep_curls', 'curl', 'curls', 'high_knees', 'high_knee', 'butt_kicks', 'butt_kick']:
+            if current_exercise_state['current_phase'] == 'up' and new_phase == 'down':
+                current_exercise_state['rep_count'] += 1
+                rep_incremented = True
+                print(f"   � REP COMPLETED (down movement)! {old_rep_count} → {current_exercise_state['rep_count']}")
+        
         current_exercise_state['current_phase'] = new_phase
-        print(f"   📈 Phase transition: {old_phase} → {new_phase}")
+        if not rep_incremented:
+            print(f"   �📈 Phase transition: {old_phase} → {new_phase}")
+    
+    # Handle isometric exercises (wall sits)
     elif new_phase in ['hold', 'rest']:
         if current_exercise_state['current_phase'] != new_phase:
-            if new_phase == 'hold':
+            if new_phase == 'hold' and current_exercise_state['current_phase'] == 'rest':
                 current_exercise_state['rep_count'] += 1
-                print(f"   🔥 HOLD COMPLETED! {old_rep_count} → {current_exercise_state['rep_count']}")
+                print(f"   🔥 HOLD STARTED! {old_rep_count} → {current_exercise_state['rep_count']}")
         current_exercise_state['current_phase'] = new_phase
         print(f"   📈 Phase change: {old_phase} → {new_phase}")
     else:
